@@ -95,7 +95,10 @@
 .primary-button,
 .watch-toggle,
 .bias-segments button,
+.status-segments button,
 .icon-button,
+.pass-button,
+.watch-button,
 .pair-row,
 .check-row,
 .large-check,
@@ -220,8 +223,18 @@
   color: var(--ink);
 }
 
+.watch-chip.pending {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
 .watch-chip.secondary small {
   color: var(--muted);
+}
+
+.watch-chip.pending small {
+  color: #c2410c;
 }
 
 .watch-chip small {
@@ -266,6 +279,10 @@
 .pair-row.muted {
   background: color-mix(in srgb, var(--surface) 72%, var(--bg));
   color: var(--muted);
+}
+
+.pair-row.pending {
+  border-color: #fed7aa;
 }
 
 .pair-card,
@@ -332,7 +349,8 @@
   color: white;
 }
 
-.bias-segments {
+.bias-segments,
+.status-segments {
   background: var(--field);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -342,7 +360,8 @@
   padding: 4px;
 }
 
-.bias-segments button {
+.bias-segments button,
+.status-segments button {
   background: transparent;
   border-radius: 6px;
   color: var(--muted);
@@ -351,10 +370,15 @@
   padding: 0 8px;
 }
 
-.bias-segments button.active {
+.bias-segments button.active,
+.status-segments button.active {
   background: var(--ink);
   color: var(--surface);
   font-weight: 800;
+}
+
+.status-segments {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .detail-backdrop {
@@ -368,7 +392,19 @@
   z-index: 9;
 }
 
-.pair-detail-panel {
+.recognition-backdrop {
+  align-items: end;
+  background: rgba(12, 22, 28, 0.58);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 11;
+}
+
+.pair-detail-panel,
+.recognition-panel {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -380,6 +416,11 @@
   overflow: auto;
   padding: 20px;
   width: 100%;
+}
+
+.recognition-panel {
+  max-width: 560px;
+  padding-bottom: 16px;
 }
 
 .pair-detail-header {
@@ -395,6 +436,17 @@
   margin: 2px 0 0;
 }
 
+.status-pill {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  color: #9a3412;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 6px 10px;
+}
+
 .icon-button {
   background: var(--field);
   border: 1px solid var(--line);
@@ -403,6 +455,34 @@
   height: 40px;
   justify-content: center;
   width: 40px;
+}
+
+.recognition-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  position: sticky;
+  bottom: 0;
+}
+
+.pass-button,
+.watch-button {
+  border-radius: 8px;
+  gap: 8px;
+  justify-content: center;
+  min-height: 54px;
+  padding: 0 14px;
+}
+
+.pass-button {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.watch-button {
+  background: var(--ink);
+  color: white;
+  font-weight: 850;
 }
 
 select,
@@ -799,5 +879,10 @@ textarea:focus-visible {
 
   .bias-segments {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-segments,
+  .recognition-actions {
+    grid-template-columns: 1fr;
   }
 }

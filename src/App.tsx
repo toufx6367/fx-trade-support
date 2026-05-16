@@ -11,7 +11,6 @@ import {
   Plus,
   RotateCcw,
   ShieldCheck,
-  Square,
   Target,
   Trash2,
   TrendingUp,
@@ -22,6 +21,7 @@ import './App.css'
 
 type PairKey = 'USDJPY' | 'EURUSD' | 'GBPJPY' | 'AUDJPY'
 type TabKey = 'market' | 'pretrade' | 'journal' | 'rules'
+type PairStatus = '環境認識前' | '監視中' | '環境認識後'
 
 type MarketItem = {
   id: string
@@ -31,7 +31,7 @@ type MarketItem = {
 
 type PairAnalysis = {
   pair: PairKey
-  watched: boolean
+  status: PairStatus
   bias: '中立' | '上昇トレンド' | '下降トレンド' | 'チャンス'
   items: MarketItem[]
   memo: string
@@ -85,6 +85,7 @@ const quizQuestions = [
 ]
 
 const pairNames: PairKey[] = ['USDJPY', 'EURUSD', 'GBPJPY', 'AUDJPY']
+const pairStatuses: PairStatus[] = ['環境認識前', '監視中', '環境認識後']
 
 const biasOptions: PairAnalysis['bias'][] = [
   '中立',
@@ -125,18 +126,27 @@ const createChecklist = (labels: string[]) =>
     checked: false,
   }))
 
+const createShuffledQuiz = () =>
+  quizQuestions.map((question) => ({
+    ...question,
+    options: [...question.options].sort(() => Math.random() - 0.5),
+  }))
+
 const createAnalyses = (): PairAnalysis[] =>
   pairNames.map((pair) => ({
     pair,
-    watched: true,
+    status: '環境認識前',
     bias: '中立',
     items: createChecklist(defaultChecklist),
     memo: '',
   }))
 
-const normalizeAnalysis = (analysis: Partial<PairAnalysis>): PairAnalysis => {
+const normalizeAnalysis = (
+  analysis: Partial<PairAnalysis> & { watched?: boolean },
+): PairAnalysis => {
   const fallback = createAnalyses().find((item) => item.pair === analysis.pair)
   const rawBias = analysis.bias as string | undefined
+  const rawStatus = analysis.status as string | undefined
   const migratedBias =
     rawBias === '買い目線'
       ? '上昇トレンド'
@@ -148,7 +158,11 @@ const normalizeAnalysis = (analysis: Partial<PairAnalysis>): PairAnalysis => {
 
   return {
     pair: (analysis.pair ?? fallback?.pair ?? 'USDJPY') as PairKey,
-    watched: analysis.watched ?? true,
+    status: pairStatuses.includes(rawStatus as PairStatus)
+      ? (rawStatus as PairStatus)
+      : analysis.watched === false
+        ? '環境認識後'
+        : '監視中',
     bias: biasOptions.includes(migratedBias as PairAnalysis['bias'])
       ? (migratedBias as PairAnalysis['bias'])
       : '中立',
@@ -197,10 +211,12 @@ const loadState = (): AppState => {
 function App() {
   const [state, setState] = useState<AppState>(loadState)
   const [activeTab, setActiveTab] = useState<TabKey>('market')
+  const [shuffledQuiz, setShuffledQuiz] = useState(createShuffledQuiz)
   const [quizIndex, setQuizIndex] = useState(0)
   const [quizCorrect, setQuizCorrect] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
   const [selectedPair, setSelectedPair] = useState<PairKey | null>(null)
+  const [recognitionPair, setRecognitionPair] = useState<PairKey | null>(null)
   const [ruleDraft, setRuleDraft] = useState('')
   const [journalDraft, setJournalDraft] = useState({
     pair: 'USDJPY',
@@ -216,26 +232,40 @@ function App() {
   }, [state])
 
   const marketProgress = useMemo(() => {
-    const watchedAnalyses = state.analyses.filter((analysis) => analysis.watched)
-    const items = watchedAnalyses.flatMap((analysis) => analysis.items)
-    if (items.length === 0) return 0
-    const done = items.filter((item) => item.checked).length
-    return Math.round((done / items.length) * 100)
+    const completed = state.analyses.filter(
+      (analysis) => analysis.status !== '環境認識前',
+    ).length
+    return Math.round((completed / state.analyses.length) * 100)
   }, [state.analyses])
 
-  const watchedAnalyses = useMemo(
-    () => state.analyses.filter((analysis) => analysis.watched),
+  const beforeAnalyses = useMemo(
+    () => state.analyses.filter((analysis) => analysis.status === '環境認識前'),
     [state.analyses],
   )
 
-  const otherAnalyses = useMemo(
-    () => state.analyses.filter((analysis) => !analysis.watched),
+  const watchedAnalyses = useMemo(
+    () => state.analyses.filter((analysis) => analysis.status === '監視中'),
+    [state.analyses],
+  )
+
+  const afterAnalyses = useMemo(
+    () => state.analyses.filter((analysis) => analysis.status === '環境認識後'),
     [state.analyses],
   )
 
   const selectedAnalysis = selectedPair
     ? state.analyses.find((analysis) => analysis.pair === selectedPair)
     : undefined
+
+  const activeRecognitionPair =
+    recognitionPair ?? (!gateOpen ? beforeAnalyses[0]?.pair ?? null : null)
+
+  const recognitionAnalysis = activeRecognitionPair
+    ? state.analyses.find((analysis) => analysis.pair === activeRecognitionPair)
+    : undefined
+  const recognitionStep = recognitionAnalysis
+    ? state.analyses.length - beforeAnalyses.length + 1
+    : state.analyses.length - beforeAnalyses.length
 
   const pretradeProgress = useMemo(() => {
     const done = state.pretrade.filter((item) => item.checked).length
@@ -248,12 +278,12 @@ function App() {
 
   const answerQuiz = (answer: string) => {
     setSelectedAnswer(answer)
-    const isCorrect = answer === quizQuestions[quizIndex].answer
+    const isCorrect = answer === shuffledQuiz[quizIndex].answer
     const nextCorrect = quizCorrect + (isCorrect ? 1 : 0)
 
     window.setTimeout(() => {
-      if (quizIndex === quizQuestions.length - 1) {
-        if (nextCorrect === quizQuestions.length) {
+      if (quizIndex === shuffledQuiz.length - 1) {
+        if (nextCorrect === shuffledQuiz.length) {
           setState((current) => ({
             ...current,
             gateDate: today,
@@ -262,6 +292,7 @@ function App() {
         } else {
           setQuizIndex(0)
           setQuizCorrect(0)
+          setShuffledQuiz(createShuffledQuiz())
         }
       } else {
         setQuizIndex((current) => current + 1)
@@ -287,15 +318,25 @@ function App() {
     }))
   }
 
-  const toggleWatchedPair = (pair: PairKey) => {
+  const updatePairStatus = (pair: PairKey, status: PairStatus) => {
     setState((current) => ({
       ...current,
       analyses: current.analyses.map((analysis) =>
-        analysis.pair === pair
-          ? { ...analysis, watched: !analysis.watched }
-          : analysis,
+        analysis.pair === pair ? { ...analysis, status } : analysis,
       ),
     }))
+  }
+
+  const completeRecognition = (pair: PairKey, status: '監視中' | '環境認識後') => {
+    const currentIndex = state.analyses.findIndex(
+      (analysis) => analysis.pair === pair,
+    )
+    const nextPair = state.analyses
+      .slice(currentIndex + 1)
+      .find((analysis) => analysis.status === '環境認識前')?.pair
+
+    updatePairStatus(pair, status)
+    setRecognitionPair(nextPair ?? null)
   }
 
   const updateBias = (pair: PairKey, bias: PairAnalysis['bias']) => {
@@ -370,6 +411,9 @@ function App() {
     }))
     setQuizIndex(0)
     setQuizCorrect(0)
+    setShuffledQuiz(createShuffledQuiz())
+    setSelectedPair(null)
+    setRecognitionPair(null)
   }
 
   return (
@@ -439,12 +483,27 @@ function App() {
             <div className="watch-list-heading">
               <div>
                 <p className="eyebrow">Watch List</p>
-                <h2>ウォッチリスト</h2>
+                <h2>環境認識ステータス</h2>
               </div>
             </div>
             <div className="watch-list-groups">
               <div className="watch-list-group">
-                <h3>監視中ペア</h3>
+                <h3>環境認識前</h3>
+                {beforeAnalyses.length > 0 ? (
+                  <div className="watch-chips pending">
+                    {beforeAnalyses.map((analysis) => (
+                      <span className="watch-chip pending" key={analysis.pair}>
+                        {analysis.pair}
+                        <small>{analysis.bias}</small>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">未確認の通貨ペアはありません。</p>
+                )}
+              </div>
+              <div className="watch-list-group">
+                <h3>監視中</h3>
                 {watchedAnalyses.length > 0 ? (
                   <div className="watch-chips">
                     {watchedAnalyses.map((analysis) => (
@@ -460,10 +519,10 @@ function App() {
                 )}
               </div>
               <div className="watch-list-group">
-                <h3>その他</h3>
-                {otherAnalyses.length > 0 ? (
+                <h3>環境認識後</h3>
+                {afterAnalyses.length > 0 ? (
                   <div className="watch-chips secondary">
-                    {otherAnalyses.map((analysis) => (
+                    {afterAnalyses.map((analysis) => (
                       <span className="watch-chip secondary" key={analysis.pair}>
                         {analysis.pair}
                         <small>{analysis.bias}</small>
@@ -471,20 +530,25 @@ function App() {
                     ))}
                   </div>
                 ) : (
-                  <p className="empty-state">その他の通貨ペアはありません。</p>
+                  <p className="empty-state">放置した通貨ペアはありません。</p>
                 )}
               </div>
             </div>
           </aside>
           <div className="pair-list-groups">
             <PairListGroup
-              analyses={watchedAnalyses}
-              title="監視中ペア"
+              analyses={beforeAnalyses}
+              title="環境認識前"
               onSelect={setSelectedPair}
             />
             <PairListGroup
-              analyses={otherAnalyses}
-              title="その他"
+              analyses={watchedAnalyses}
+              title="監視中"
+              onSelect={setSelectedPair}
+            />
+            <PairListGroup
+              analyses={afterAnalyses}
+              title="環境認識後"
               onSelect={setSelectedPair}
             />
           </div>
@@ -660,15 +724,15 @@ function App() {
             </div>
             <div className="quiz-box">
               <p className="quiz-count">
-                {quizIndex + 1} / {quizQuestions.length}
+                {quizIndex + 1} / {shuffledQuiz.length}
               </p>
-              <h3>{quizQuestions[quizIndex].question}</h3>
+              <h3>{shuffledQuiz[quizIndex].question}</h3>
               <div className="quiz-options">
-                {quizQuestions[quizIndex].options.map((option) => (
+                {shuffledQuiz[quizIndex].options.map((option) => (
                   <button
                     className={
                       selectedAnswer === option
-                        ? option === quizQuestions[quizIndex].answer
+                        ? option === shuffledQuiz[quizIndex].answer
                           ? 'correct'
                           : 'wrong'
                         : ''
@@ -691,7 +755,88 @@ function App() {
         </div>
       )}
 
-      {selectedAnalysis && (
+      {recognitionAnalysis && (
+        <div
+          className="recognition-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="recognition-title"
+        >
+          <section className="recognition-panel">
+            <header className="pair-detail-header">
+              <div>
+                <p className="eyebrow">
+                  Environment Check {recognitionStep} / {state.analyses.length}
+                </p>
+                <h2 id="recognition-title">{recognitionAnalysis.pair}</h2>
+              </div>
+              <span className="status-pill">{recognitionAnalysis.status}</span>
+            </header>
+            <div
+              className="bias-segments"
+              aria-label={`${recognitionAnalysis.pair}のカテゴリ`}
+            >
+              {biasOptions.map((bias) => (
+                <button
+                  className={recognitionAnalysis.bias === bias ? 'active' : ''}
+                  key={bias}
+                  type="button"
+                  onClick={() => updateBias(recognitionAnalysis.pair, bias)}
+                >
+                  {bias}
+                </button>
+              ))}
+            </div>
+            <div className="checklist">
+              {recognitionAnalysis.items.map((item) => (
+                <button
+                  className={item.checked ? 'check-row done' : 'check-row'}
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    toggleMarketItem(recognitionAnalysis.pair, item.id)
+                  }
+                >
+                  <span>{item.checked && <Check size={14} />}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              aria-label={`${recognitionAnalysis.pair}のメモ`}
+              placeholder="根拠、見送り理由、注目価格など"
+              value={recognitionAnalysis.memo}
+              onChange={(event) =>
+                updateMemo(recognitionAnalysis.pair, event.target.value)
+              }
+            />
+            <div className="recognition-actions">
+              <button
+                className="pass-button"
+                type="button"
+                onClick={() =>
+                  completeRecognition(recognitionAnalysis.pair, '環境認識後')
+                }
+              >
+                <X size={20} />
+                放置する
+              </button>
+              <button
+                className="watch-button"
+                type="button"
+                onClick={() =>
+                  completeRecognition(recognitionAnalysis.pair, '監視中')
+                }
+              >
+                <Check size={20} />
+                監視する
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {selectedAnalysis && !recognitionAnalysis && (
         <div
           className="detail-backdrop"
           role="dialog"
@@ -713,24 +858,21 @@ function App() {
                 <X size={20} />
               </button>
             </header>
-            <button
-              className={
-                selectedAnalysis.watched
-                  ? 'watch-toggle active'
-                  : 'watch-toggle'
-              }
-              type="button"
-              onClick={() => toggleWatchedPair(selectedAnalysis.pair)}
+            <div
+              className="status-segments"
+              aria-label={`${selectedAnalysis.pair}の管理カテゴリ`}
             >
-              <span>
-                {selectedAnalysis.watched ? (
-                  <Check size={14} />
-                ) : (
-                  <Square size={14} />
-                )}
-              </span>
-              {selectedAnalysis.watched ? '監視中' : '監視外'}
-            </button>
+              {pairStatuses.map((status) => (
+                <button
+                  className={selectedAnalysis.status === status ? 'active' : ''}
+                  key={status}
+                  type="button"
+                  onClick={() => updatePairStatus(selectedAnalysis.pair, status)}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
             <div
               className="bias-segments"
               aria-label={`${selectedAnalysis.pair}のカテゴリ`}
@@ -790,7 +932,13 @@ function PairListGroup({
         <div className="pair-list">
           {analyses.map((analysis) => (
             <button
-              className={analysis.watched ? 'pair-row' : 'pair-row muted'}
+              className={
+                analysis.status === '環境認識前'
+                  ? 'pair-row pending'
+                  : analysis.status === '監視中'
+                    ? 'pair-row'
+                    : 'pair-row muted'
+              }
               key={analysis.pair}
               type="button"
               onClick={() => onSelect(analysis.pair)}
