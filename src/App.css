@@ -93,6 +93,8 @@
 .tabbar button,
 .ghost-button,
 .primary-button,
+.watch-toggle,
+.bias-segments button,
 .check-row,
 .large-check,
 .rule-list button,
@@ -148,6 +150,50 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.watch-list {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(170px, auto) 1fr;
+  margin-bottom: 14px;
+  padding: 16px;
+}
+
+.watch-list h2 {
+  color: var(--ink);
+  font-size: 20px;
+  margin: 2px 0 0;
+}
+
+.watch-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.watch-chip {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.watch-chip small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .pair-card,
 .decision-panel,
 .journal-form,
@@ -164,6 +210,11 @@
   padding: 18px;
 }
 
+.pair-card.muted {
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  opacity: 0.72;
+}
+
 .pair-heading {
   align-items: center;
   display: flex;
@@ -174,6 +225,62 @@
 .pair-heading h2 {
   font-size: 22px;
   margin: 2px 0 0;
+}
+
+.watch-toggle {
+  background: transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  gap: 7px;
+  margin: 0 0 8px -2px;
+  min-height: 30px;
+  padding: 0 2px;
+}
+
+.watch-toggle span {
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  display: inline-flex;
+  height: 22px;
+  justify-content: center;
+  width: 22px;
+}
+
+.watch-toggle.active {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.watch-toggle.active span {
+  background: var(--good);
+  border-color: var(--good);
+  color: white;
+}
+
+.bias-segments {
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.bias-segments button {
+  background: transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 8px;
+}
+
+.bias-segments button.active {
+  background: var(--ink);
+  color: var(--surface);
+  font-weight: 800;
 }
 
 select,
@@ -526,8 +633,13 @@ textarea:focus-visible {
 
   .summary-grid,
   .pair-grid,
-  .split-layout {
+  .split-layout,
+  .watch-list {
     grid-template-columns: 1fr;
+  }
+
+  .watch-chips {
+    justify-content: flex-start;
   }
 
   .tabbar {
@@ -560,5 +672,9 @@ textarea:focus-visible {
 
   .tabbar button {
     font-size: 14px;
+  }
+
+  .bias-segments {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

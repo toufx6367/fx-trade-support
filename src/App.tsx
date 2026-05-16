@@ -11,6 +11,7 @@ import {
   Plus,
   RotateCcw,
   ShieldCheck,
+  Square,
   Target,
   Trash2,
   TrendingUp,
@@ -29,7 +30,8 @@ type MarketItem = {
 
 type PairAnalysis = {
   pair: PairKey
-  bias: '買い目線' | '売り目線' | '中立' | '見送り'
+  watched: boolean
+  bias: '中立' | '上昇トレンド' | '下降トレンド' | 'チャンス'
   items: MarketItem[]
   memo: string
 }
@@ -83,6 +85,13 @@ const quizQuestions = [
 
 const pairNames: PairKey[] = ['USDJPY', 'EURUSD', 'GBPJPY', 'AUDJPY']
 
+const biasOptions: PairAnalysis['bias'][] = [
+  '中立',
+  '上昇トレンド',
+  '下降トレンド',
+  'チャンス',
+]
+
 const defaultChecklist = [
   '日足の方向を確認',
   '4時間足の方向を確認',
@@ -118,10 +127,36 @@ const createChecklist = (labels: string[]) =>
 const createAnalyses = (): PairAnalysis[] =>
   pairNames.map((pair) => ({
     pair,
+    watched: true,
     bias: '中立',
     items: createChecklist(defaultChecklist),
     memo: '',
   }))
+
+const normalizeAnalysis = (analysis: Partial<PairAnalysis>): PairAnalysis => {
+  const fallback = createAnalyses().find((item) => item.pair === analysis.pair)
+  const rawBias = analysis.bias as string | undefined
+  const migratedBias =
+    rawBias === '買い目線'
+      ? '上昇トレンド'
+      : rawBias === '売り目線'
+        ? '下降トレンド'
+        : rawBias === '見送り'
+          ? '中立'
+          : rawBias
+
+  return {
+    pair: (analysis.pair ?? fallback?.pair ?? 'USDJPY') as PairKey,
+    watched: analysis.watched ?? true,
+    bias: biasOptions.includes(migratedBias as PairAnalysis['bias'])
+      ? (migratedBias as PairAnalysis['bias'])
+      : '中立',
+    items: analysis.items?.length
+      ? analysis.items
+      : createChecklist(defaultChecklist),
+    memo: analysis.memo ?? '',
+  }
+}
 
 const createInitialState = (): AppState => ({
   gateDate: '',
@@ -143,7 +178,10 @@ const loadState = (): AppState => {
     return {
       ...loaded,
       marketDate: today,
-      analyses: loaded.marketDate === today ? loaded.analyses : createAnalyses(),
+      analyses:
+        loaded.marketDate === today
+          ? loaded.analyses.map(normalizeAnalysis)
+          : createAnalyses(),
       pretradeDate: today,
       pretrade:
         loaded.pretradeDate === today
@@ -176,10 +214,17 @@ function App() {
   }, [state])
 
   const marketProgress = useMemo(() => {
-    const items = state.analyses.flatMap((analysis) => analysis.items)
+    const watchedAnalyses = state.analyses.filter((analysis) => analysis.watched)
+    const items = watchedAnalyses.flatMap((analysis) => analysis.items)
+    if (items.length === 0) return 0
     const done = items.filter((item) => item.checked).length
     return Math.round((done / items.length) * 100)
   }, [state.analyses])
+
+  const watchedAnalyses = useMemo(
+    () => state.analyses.filter((analysis) => analysis.watched),
+    [state.analyses],
+  )
 
   const pretradeProgress = useMemo(() => {
     const done = state.pretrade.filter((item) => item.checked).length
@@ -226,6 +271,17 @@ function App() {
                 item.id === itemId ? { ...item, checked: !item.checked } : item,
               ),
             }
+          : analysis,
+      ),
+    }))
+  }
+
+  const toggleWatchedPair = (pair: PairKey) => {
+    setState((current) => ({
+      ...current,
+      analyses: current.analyses.map((analysis) =>
+        analysis.pair === pair
+          ? { ...analysis, watched: !analysis.watched }
           : analysis,
       ),
     }))
@@ -368,29 +424,67 @@ function App() {
             title="今日の相場分析"
             description="監視通貨ごとに、方向・水平線・指標・見送り判断をチェックします。"
           />
+          <aside className="watch-list" aria-label="監視通貨ペアのみ">
+            <div>
+              <p className="eyebrow">Watch List</p>
+              <h2>監視中ペアのみ</h2>
+            </div>
+            {watchedAnalyses.length > 0 ? (
+              <div className="watch-chips">
+                {watchedAnalyses.map((analysis) => (
+                  <span className="watch-chip" key={analysis.pair}>
+                    <Check size={14} />
+                    {analysis.pair}
+                    <small>{analysis.bias}</small>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="empty-state">監視中の通貨ペアがありません。</p>
+            )}
+          </aside>
           <div className="pair-grid">
             {state.analyses.map((analysis) => (
-              <article className="pair-card" key={analysis.pair}>
+              <article
+                className={analysis.watched ? 'pair-card' : 'pair-card muted'}
+                key={analysis.pair}
+              >
                 <div className="pair-heading">
                   <div>
+                    <button
+                      className={
+                        analysis.watched ? 'watch-toggle active' : 'watch-toggle'
+                      }
+                      type="button"
+                      onClick={() => toggleWatchedPair(analysis.pair)}
+                    >
+                      <span>
+                        {analysis.watched ? (
+                          <Check size={14} />
+                        ) : (
+                          <Square size={14} />
+                        )}
+                      </span>
+                      {analysis.watched ? '監視中' : '監視外'}
+                    </button>
                     <p className="eyebrow">{analysis.pair}</p>
                     <h2>{analysis.bias}</h2>
                   </div>
-                  <select
-                    aria-label={`${analysis.pair}の目線`}
-                    value={analysis.bias}
-                    onChange={(event) =>
-                      updateBias(
-                        analysis.pair,
-                        event.target.value as PairAnalysis['bias'],
-                      )
-                    }
-                  >
-                    <option>買い目線</option>
-                    <option>売り目線</option>
-                    <option>中立</option>
-                    <option>見送り</option>
-                  </select>
+                </div>
+                <div
+                  className="bias-segments"
+                  aria-label={`${analysis.pair}のカテゴリ`}
+                >
+                  {biasOptions.map((bias) => (
+                    <button
+                      className={analysis.bias === bias ? 'active' : ''}
+                      key={bias}
+                      type="button"
+                      onClick={() => updateBias(analysis.pair, bias)}
+                    >
+                      {bias}
+                    </button>
+                  ))}
                 </div>
                 <div className="checklist">
                   {analysis.items.map((item) => (

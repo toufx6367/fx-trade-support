@@ -13,6 +13,7 @@ dist-ssr
 *.local
 fx-app-preview.png
 fx-pages-live.png
+fx-watchlist-*.png
 .playwright-mcp/
 
 # Editor directories and files
