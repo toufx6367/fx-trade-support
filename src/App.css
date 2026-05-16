@@ -99,6 +99,7 @@
 .icon-button,
 .pass-button,
 .watch-button,
+.watch-chip,
 .pair-row,
 .check-row,
 .large-check,
@@ -217,6 +218,11 @@
   padding: 0 12px;
 }
 
+.watch-chip:hover,
+.pair-row:hover {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--line));
+}
+
 .watch-chip.secondary {
   background: var(--field);
   border: 1px solid var(--line);
@@ -243,11 +249,6 @@
   font-weight: 700;
 }
 
-.pair-list-groups {
-  display: grid;
-  gap: 18px;
-}
-
 .pair-list-section {
   display: grid;
   gap: 10px;
@@ -256,7 +257,7 @@
 .pair-list {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .pair-row {

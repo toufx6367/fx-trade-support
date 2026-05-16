@@ -492,10 +492,15 @@ function App() {
                 {beforeAnalyses.length > 0 ? (
                   <div className="watch-chips pending">
                     {beforeAnalyses.map((analysis) => (
-                      <span className="watch-chip pending" key={analysis.pair}>
+                      <button
+                        className="watch-chip pending"
+                        key={analysis.pair}
+                        type="button"
+                        onClick={() => setSelectedPair(analysis.pair)}
+                      >
                         {analysis.pair}
                         <small>{analysis.bias}</small>
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -507,11 +512,16 @@ function App() {
                 {watchedAnalyses.length > 0 ? (
                   <div className="watch-chips">
                     {watchedAnalyses.map((analysis) => (
-                      <span className="watch-chip" key={analysis.pair}>
+                      <button
+                        className="watch-chip"
+                        key={analysis.pair}
+                        type="button"
+                        onClick={() => setSelectedPair(analysis.pair)}
+                      >
                         <Check size={14} />
                         {analysis.pair}
                         <small>{analysis.bias}</small>
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -523,10 +533,15 @@ function App() {
                 {afterAnalyses.length > 0 ? (
                   <div className="watch-chips secondary">
                     {afterAnalyses.map((analysis) => (
-                      <span className="watch-chip secondary" key={analysis.pair}>
+                      <button
+                        className="watch-chip secondary"
+                        key={analysis.pair}
+                        type="button"
+                        onClick={() => setSelectedPair(analysis.pair)}
+                      >
                         {analysis.pair}
                         <small>{analysis.bias}</small>
-                      </span>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -535,23 +550,7 @@ function App() {
               </div>
             </div>
           </aside>
-          <div className="pair-list-groups">
-            <PairListGroup
-              analyses={beforeAnalyses}
-              title="環境認識前"
-              onSelect={setSelectedPair}
-            />
-            <PairListGroup
-              analyses={watchedAnalyses}
-              title="監視中"
-              onSelect={setSelectedPair}
-            />
-            <PairListGroup
-              analyses={afterAnalyses}
-              title="環境認識後"
-              onSelect={setSelectedPair}
-            />
-          </div>
+          <PairList analyses={state.analyses} onSelect={setSelectedPair} />
         </section>
       )}
 
@@ -916,41 +915,35 @@ function App() {
   )
 }
 
-function PairListGroup({
+function PairList({
   analyses,
   onSelect,
-  title,
 }: {
   analyses: PairAnalysis[]
   onSelect: (pair: PairKey) => void
-  title: string
 }) {
   return (
     <section className="pair-list-section">
-      <h3>{title}</h3>
-      {analyses.length > 0 ? (
-        <div className="pair-list">
-          {analyses.map((analysis) => (
-            <button
-              className={
-                analysis.status === '環境認識前'
-                  ? 'pair-row pending'
-                  : analysis.status === '監視中'
-                    ? 'pair-row'
-                    : 'pair-row muted'
-              }
-              key={analysis.pair}
-              type="button"
-              onClick={() => onSelect(analysis.pair)}
-            >
-              <span>{analysis.pair}</span>
-              <ChevronRight size={18} />
-            </button>
-          ))}
-        </div>
-      ) : (
-        <p className="empty-state">該当する通貨ペアはありません。</p>
-      )}
+      <h3>通貨ペアリスト</h3>
+      <div className="pair-list">
+        {analyses.map((analysis) => (
+          <button
+            className={
+              analysis.status === '環境認識前'
+                ? 'pair-row pending'
+                : analysis.status === '監視中'
+                  ? 'pair-row'
+                  : 'pair-row muted'
+            }
+            key={analysis.pair}
+            type="button"
+            onClick={() => onSelect(analysis.pair)}
+          >
+            <span>{analysis.pair}</span>
+            <ChevronRight size={18} />
+          </button>
+        ))}
+      </div>
     </section>
   )
 }
