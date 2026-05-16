@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 fx-app-preview.png
+fx-pages-live.png
+.playwright-mcp/
 
 # Editor directories and files
 .vscode/*
