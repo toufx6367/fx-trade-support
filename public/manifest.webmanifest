@@ -1,0 +1,16 @@
+{
+  "name": "FX Trade Support",
+  "short_name": "FX Support",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#eef3f4",
+  "theme_color": "#172026",
+  "description": "毎朝のルール確認、相場分析、エントリー前チェック、日誌をまとめるFXトレードサポートアプリです。",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
