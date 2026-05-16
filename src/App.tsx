@@ -15,6 +15,7 @@ import {
   Target,
   Trash2,
   TrendingUp,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import './App.css'
@@ -199,6 +200,7 @@ function App() {
   const [quizIndex, setQuizIndex] = useState(0)
   const [quizCorrect, setQuizCorrect] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState('')
+  const [selectedPair, setSelectedPair] = useState<PairKey | null>(null)
   const [ruleDraft, setRuleDraft] = useState('')
   const [journalDraft, setJournalDraft] = useState({
     pair: 'USDJPY',
@@ -225,6 +227,15 @@ function App() {
     () => state.analyses.filter((analysis) => analysis.watched),
     [state.analyses],
   )
+
+  const otherAnalyses = useMemo(
+    () => state.analyses.filter((analysis) => !analysis.watched),
+    [state.analyses],
+  )
+
+  const selectedAnalysis = selectedPair
+    ? state.analyses.find((analysis) => analysis.pair === selectedPair)
+    : undefined
 
   const pretradeProgress = useMemo(() => {
     const done = state.pretrade.filter((item) => item.checked).length
@@ -424,91 +435,58 @@ function App() {
             title="今日の相場分析"
             description="監視通貨ごとに、方向・水平線・指標・見送り判断をチェックします。"
           />
-          <aside className="watch-list" aria-label="監視通貨ペアのみ">
-            <div>
-              <p className="eyebrow">Watch List</p>
-              <h2>監視中ペアのみ</h2>
-            </div>
-            {watchedAnalyses.length > 0 ? (
-              <div className="watch-chips">
-                {watchedAnalyses.map((analysis) => (
-                  <span className="watch-chip" key={analysis.pair}>
-                    <Check size={14} />
-                    {analysis.pair}
-                    <small>{analysis.bias}</small>
-                  </span>
-                ))}
+          <aside className="watch-list" aria-label="ウォッチリスト">
+            <div className="watch-list-heading">
+              <div>
+                <p className="eyebrow">Watch List</p>
+                <h2>ウォッチリスト</h2>
               </div>
-            ) : (
-              <p className="empty-state">監視中の通貨ペアがありません。</p>
-            )}
-          </aside>
-          <div className="pair-grid">
-            {state.analyses.map((analysis) => (
-              <article
-                className={analysis.watched ? 'pair-card' : 'pair-card muted'}
-                key={analysis.pair}
-              >
-                <div className="pair-heading">
-                  <div>
-                    <button
-                      className={
-                        analysis.watched ? 'watch-toggle active' : 'watch-toggle'
-                      }
-                      type="button"
-                      onClick={() => toggleWatchedPair(analysis.pair)}
-                    >
-                      <span>
-                        {analysis.watched ? (
-                          <Check size={14} />
-                        ) : (
-                          <Square size={14} />
-                        )}
+            </div>
+            <div className="watch-list-groups">
+              <div className="watch-list-group">
+                <h3>監視中ペア</h3>
+                {watchedAnalyses.length > 0 ? (
+                  <div className="watch-chips">
+                    {watchedAnalyses.map((analysis) => (
+                      <span className="watch-chip" key={analysis.pair}>
+                        <Check size={14} />
+                        {analysis.pair}
+                        <small>{analysis.bias}</small>
                       </span>
-                      {analysis.watched ? '監視中' : '監視外'}
-                    </button>
-                    <p className="eyebrow">{analysis.pair}</p>
-                    <h2>{analysis.bias}</h2>
+                    ))}
                   </div>
-                </div>
-                <div
-                  className="bias-segments"
-                  aria-label={`${analysis.pair}のカテゴリ`}
-                >
-                  {biasOptions.map((bias) => (
-                    <button
-                      className={analysis.bias === bias ? 'active' : ''}
-                      key={bias}
-                      type="button"
-                      onClick={() => updateBias(analysis.pair, bias)}
-                    >
-                      {bias}
-                    </button>
-                  ))}
-                </div>
-                <div className="checklist">
-                  {analysis.items.map((item) => (
-                    <button
-                      className={item.checked ? 'check-row done' : 'check-row'}
-                      key={item.id}
-                      type="button"
-                      onClick={() => toggleMarketItem(analysis.pair, item.id)}
-                    >
-                      <span>{item.checked && <Check size={14} />}</span>
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  aria-label={`${analysis.pair}のメモ`}
-                  placeholder="根拠、見送り理由、注目価格など"
-                  value={analysis.memo}
-                  onChange={(event) =>
-                    updateMemo(analysis.pair, event.target.value)
-                  }
-                />
-              </article>
-            ))}
+                ) : (
+                  <p className="empty-state">監視中の通貨ペアがありません。</p>
+                )}
+              </div>
+              <div className="watch-list-group">
+                <h3>その他</h3>
+                {otherAnalyses.length > 0 ? (
+                  <div className="watch-chips secondary">
+                    {otherAnalyses.map((analysis) => (
+                      <span className="watch-chip secondary" key={analysis.pair}>
+                        {analysis.pair}
+                        <small>{analysis.bias}</small>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">その他の通貨ペアはありません。</p>
+                )}
+              </div>
+            </div>
+          </aside>
+          <div className="pair-list-groups">
+            <PairListGroup
+              analyses={watchedAnalyses}
+              title="監視中ペア"
+              onSelect={setSelectedPair}
+            />
+            <PairListGroup
+              analyses={otherAnalyses}
+              title="その他"
+              onSelect={setSelectedPair}
+            />
           </div>
         </section>
       )}
@@ -712,7 +690,120 @@ function App() {
           </section>
         </div>
       )}
+
+      {selectedAnalysis && (
+        <div
+          className="detail-backdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pair-detail-title"
+        >
+          <section className="pair-detail-panel">
+            <header className="pair-detail-header">
+              <div>
+                <p className="eyebrow">Pair Detail</p>
+                <h2 id="pair-detail-title">{selectedAnalysis.pair}</h2>
+              </div>
+              <button
+                aria-label="詳細を閉じる"
+                className="icon-button"
+                type="button"
+                onClick={() => setSelectedPair(null)}
+              >
+                <X size={20} />
+              </button>
+            </header>
+            <button
+              className={
+                selectedAnalysis.watched
+                  ? 'watch-toggle active'
+                  : 'watch-toggle'
+              }
+              type="button"
+              onClick={() => toggleWatchedPair(selectedAnalysis.pair)}
+            >
+              <span>
+                {selectedAnalysis.watched ? (
+                  <Check size={14} />
+                ) : (
+                  <Square size={14} />
+                )}
+              </span>
+              {selectedAnalysis.watched ? '監視中' : '監視外'}
+            </button>
+            <div
+              className="bias-segments"
+              aria-label={`${selectedAnalysis.pair}のカテゴリ`}
+            >
+              {biasOptions.map((bias) => (
+                <button
+                  className={selectedAnalysis.bias === bias ? 'active' : ''}
+                  key={bias}
+                  type="button"
+                  onClick={() => updateBias(selectedAnalysis.pair, bias)}
+                >
+                  {bias}
+                </button>
+              ))}
+            </div>
+            <div className="checklist">
+              {selectedAnalysis.items.map((item) => (
+                <button
+                  className={item.checked ? 'check-row done' : 'check-row'}
+                  key={item.id}
+                  type="button"
+                  onClick={() => toggleMarketItem(selectedAnalysis.pair, item.id)}
+                >
+                  <span>{item.checked && <Check size={14} />}</span>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              aria-label={`${selectedAnalysis.pair}のメモ`}
+              placeholder="根拠、見送り理由、注目価格など"
+              value={selectedAnalysis.memo}
+              onChange={(event) =>
+                updateMemo(selectedAnalysis.pair, event.target.value)
+              }
+            />
+          </section>
+        </div>
+      )}
     </main>
+  )
+}
+
+function PairListGroup({
+  analyses,
+  onSelect,
+  title,
+}: {
+  analyses: PairAnalysis[]
+  onSelect: (pair: PairKey) => void
+  title: string
+}) {
+  return (
+    <section className="pair-list-section">
+      <h3>{title}</h3>
+      {analyses.length > 0 ? (
+        <div className="pair-list">
+          {analyses.map((analysis) => (
+            <button
+              className={analysis.watched ? 'pair-row' : 'pair-row muted'}
+              key={analysis.pair}
+              type="button"
+              onClick={() => onSelect(analysis.pair)}
+            >
+              <span>{analysis.pair}</span>
+              <ChevronRight size={18} />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state">該当する通貨ペアはありません。</p>
+      )}
+    </section>
   )
 }
 

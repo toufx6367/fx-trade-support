@@ -14,6 +14,7 @@ dist-ssr
 fx-app-preview.png
 fx-pages-live.png
 fx-watchlist-*.png
+fx-modal-list-*.png
 .playwright-mcp/
 
 # Editor directories and files
