@@ -59,6 +59,28 @@ type AppState = {
 const STORAGE_KEY = 'fx-trade-support-v1'
 
 const baseRules = [
+  '月間損失上限は250,000円。上限に達したらその月は新規エントリーしない',
+  '1トレードの許容損失は50,000円までに固定する',
+  '月の目標トレード回数は5回。無理に回数を埋めない',
+  '監視銘柄は毎月1日に4通貨だけ選別し、各通貨は月1〜2本を目安にする',
+  '環境認識はH4〜M15で行い、H4・H1が上昇トレンドでない場合は見送る',
+  'H4でチャネル上限から折り返している局面はエントリーしない',
+  'H1最安値起点のラインを上抜けていない場合はエントリーしない',
+  'H1最安値起点ラインを上抜けた後の押し目が半値戻し付近でない場合は見送る',
+  '1本目はH1上昇チャネル下限付近だけを候補にする',
+  'M15下降チャネルの安値更新失敗を確認する',
+  'M15下降チャネルを逆ブレイクした後だけを候補にする',
+  'M15が上昇転換した後、下降チャネルのロールリバーサル付近で入る',
+  '1本目の損切りはM15上昇転換の起点の安値に置く',
+  'RRが1.5〜3に収まる場面だけを狙う',
+  '2本目前に1本目のストップを建値または微益へ移動し、1本目をリスクフリーにする',
+  '2本目以降の追加リスクは最大15,000円までにする',
+  '追加ロットは必ず前回より小さくする',
+  '1本目が含み益でない状態の追加エントリーは禁止する',
+  'M15で新しい押し安値を作って高値更新したら、全ポジションのストップをその押し安値の少し下へ引き上げる',
+]
+
+const oldBaseRules = [
   '損切り位置を決める前にエントリーしない',
   '1回の許容損失は資金の1%以内',
   '重要指標の前後30分は新規エントリーしない',
@@ -68,19 +90,23 @@ const baseRules = [
 
 const quizQuestions = [
   {
-    question: 'エントリー前に最初に確認するものは？',
-    options: ['損切り位置と許容損失', 'SNSの予想', '直近の勝敗'],
-    answer: '損切り位置と許容損失',
+    question: '1トレードの許容損失額は？',
+    options: ['50,000円', '15,000円', '250,000円'],
+    answer: '50,000円',
   },
   {
-    question: '重要指標の前後30分に取る行動は？',
-    options: ['新規エントリーを控える', 'ロットを上げる', '短期足だけで判断する'],
-    answer: '新規エントリーを控える',
+    question: '1本目の損切り位置は？',
+    options: ['M15上昇転換の起点の安値', 'H1チャネル上限', '直近高値の少し上'],
+    answer: 'M15上昇転換の起点の安値',
   },
   {
-    question: '連敗後に避けたい行動は？',
-    options: ['取り返し目的のロット上げ', '見送り', '振り返りを書く'],
-    answer: '取り返し目的のロット上げ',
+    question: '2本目を入れる前に必ず行うことは？',
+    options: [
+      '1本目のストップを建値または微益へ移動',
+      '1本目のロットを増やす',
+      '含み損のまま平均建値を下げる',
+    ],
+    answer: '1本目のストップを建値または微益へ移動',
   },
 ]
 
@@ -95,6 +121,19 @@ const biasOptions: PairAnalysis['bias'][] = [
 ]
 
 const defaultChecklist = [
+  '月初に選別した4通貨の中だけを確認',
+  'H4でチャネル上限から折り返していない',
+  'H4・H1が上昇トレンド',
+  'H1最安値起点ラインを上抜け済み',
+  '上抜け後の押し目が半値戻し付近',
+  'H1上昇チャネル下限付近',
+  'M15下降チャネルの安値更新失敗を確認',
+  'M15下降チャネルの逆ブレイクを確認',
+  'M15上昇転換後の下降チャネル・ロールリバーサル付近',
+  'RR 1.5〜3の利確候補がある',
+]
+
+const oldDefaultChecklist = [
   '日足の方向を確認',
   '4時間足の方向を確認',
   '重要水平線を確認',
@@ -103,6 +142,24 @@ const defaultChecklist = [
 ]
 
 const pretradeItems = [
+  '月間損失上限250,000円までの残枠がある',
+  '今回の損失額は50,000円以内',
+  '月5回の計画を超える無理なエントリーではない',
+  'H4チャネル上限からの折り返しではない',
+  'H4・H1が上昇トレンド',
+  'H1最安値起点ラインを上抜け後、押し目が半値戻し付近',
+  'H1上昇チャネル下限付近',
+  'M15下降チャネル安値更新失敗を確認済み',
+  'M15下降チャネル逆ブレイクを確認済み',
+  'M15上昇転換後の下降チャネル・ロールリバーサル付近',
+  '損切りはM15上昇転換の起点の安値',
+  'RRは1.5〜3に収まっている',
+  '増し玉時のみ: 既存ポジションは含み益で、ストップを建値または微益に移動済み',
+  '増し玉時のみ: 追加ロットは前回より小さく、追加リスクは最大15,000円',
+  '焦り・怒り・取り返し目的ではない',
+]
+
+const oldPretradeItems = [
   'エントリー根拠が2つ以上ある',
   '損切り位置がチャート上で明確',
   'リスクリワードが1:1.5以上',
@@ -125,6 +182,37 @@ const createChecklist = (labels: string[]) =>
     label,
     checked: false,
   }))
+
+const hasSameLabels = (items: MarketItem[] | undefined, labels: string[]) =>
+  Boolean(
+    items?.length === labels.length &&
+      items.every((item, index) => item.label === labels[index]),
+  )
+
+const normalizeChecklist = (
+  items: MarketItem[] | undefined,
+  labels: string[],
+  oldLabels: string[],
+) => {
+  if (!items?.length || hasSameLabels(items, oldLabels)) {
+    return createChecklist(labels)
+  }
+  return items
+}
+
+const startsWithRules = (rules: string[], prefix: string[]) =>
+  prefix.every((rule, index) => rules[index] === rule)
+
+const normalizeRules = (rules: string[] | undefined) => {
+  if (!rules?.length) return baseRules
+  if (startsWithRules(rules, oldBaseRules)) {
+    const customRules = rules
+      .slice(oldBaseRules.length)
+      .filter((rule) => !baseRules.includes(rule))
+    return [...baseRules, ...customRules]
+  }
+  return rules
+}
 
 const createShuffledQuiz = () =>
   quizQuestions.map((question) => ({
@@ -166,9 +254,11 @@ const normalizeAnalysis = (
     bias: biasOptions.includes(migratedBias as PairAnalysis['bias'])
       ? (migratedBias as PairAnalysis['bias'])
       : '中立',
-    items: analysis.items?.length
-      ? analysis.items
-      : createChecklist(defaultChecklist),
+    items: normalizeChecklist(
+      analysis.items,
+      defaultChecklist,
+      oldDefaultChecklist,
+    ),
     memo: analysis.memo ?? '',
   }
 }
@@ -200,8 +290,9 @@ const loadState = (): AppState => {
       pretradeDate: today,
       pretrade:
         loaded.pretradeDate === today
-          ? loaded.pretrade
+          ? normalizeChecklist(loaded.pretrade, pretradeItems, oldPretradeItems)
           : createChecklist(pretradeItems),
+      rules: normalizeRules(loaded.rules),
     }
   } catch {
     return createInitialState()
@@ -477,7 +568,7 @@ function App() {
         <section className="workspace">
           <SectionHeader
             title="今日の相場分析"
-            description="監視通貨ごとに、方向・水平線・指標・見送り判断をチェックします。"
+            description="H4〜M15で上昇トレンド、チャネル位置、見送り条件を確認します。"
           />
           <aside className="watch-list" aria-label="ウォッチリスト">
             <div className="watch-list-heading">
@@ -559,7 +650,7 @@ function App() {
           <div>
             <SectionHeader
               title="エントリー前チェック"
-              description="すべて満たすまで、取引OKにしないための最終確認です。"
+              description="1本目と増し玉の条件がすべて揃った時だけ取引OKにします。"
             />
             <div className="large-checklist">
               {state.pretrade.map((item) => (
@@ -581,8 +672,8 @@ function App() {
             <h2>{pretradeProgress === 100 ? '取引OK' : 'まだ待つ'}</h2>
             <p>
               {pretradeProgress === 100
-                ? '条件は揃っています。ロットを守って淡々と実行。'
-                : '未確認項目があります。焦りがある日は見送りも正解です。'}
+                ? '条件は揃っています。損失額と損切り位置を守って淡々と実行。'
+                : '未確認項目があります。1つでも欠けたら見送りです。'}
             </p>
           </aside>
         </section>
@@ -670,8 +761,8 @@ function App() {
         <section className="workspace split-layout">
           <div>
             <SectionHeader
-              title="毎朝確認するルール"
-              description="自分の負けパターンに合わせて、朝の確認文を育てます。"
+              title="トレードルール"
+              description="月間損失、エントリー条件、見送り条件、増し玉と決済を固定します。"
             />
             <ol className="rule-list">
               {state.rules.map((rule, index) => (
@@ -692,7 +783,7 @@ function App() {
             <label>
               新しいルール
               <textarea
-                placeholder="例: 東京時間のレンジ中はブレイク確定まで待つ"
+                placeholder="例: 重要指標の前後30分は新規エントリーしない"
                 value={ruleDraft}
                 onChange={(event) => setRuleDraft(event.target.value)}
               />
